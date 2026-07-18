@@ -65,7 +65,10 @@
 </head>
 <body>
 <% if (message != null) { %>
-    <admin:infobox type="<%= messageType %>"><%= StringEscapeUtils.escapeHtml4(message) %></admin:infobox>
+    <div class="jive-contentBox">
+        <strong><%= "error".equals(messageType) ? "Error" : "Success" %>:</strong>
+        <%= StringEscapeUtils.escapeHtml4(message) %>
+    </div>
 <% } %>
 
 <p>Manage a separate local password for an LDAP-backed Openfire user. The user must exist and belong to the configured allowed group.</p>
