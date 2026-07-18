@@ -65,11 +65,12 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
                 if (!result.next()) {
                     return Optional.empty();
                 }
-                final long revokedAt = result.getLong("revokedAt");
+                final long revokedAtValue = result.getLong("revokedAt");
+                final Instant revokedAt = result.wasNull() ? null : Instant.ofEpochMilli(revokedAtValue);
                 return Optional.of(new MobileCredentialRecord(
                     result.getString("username"), result.getString("algorithm"), result.getInt("iterations"),
                     result.getString("salt"), result.getString("passwordHash"), result.getBoolean("enabled"),
-                    Instant.ofEpochMilli(result.getLong("updatedAt")), result.wasNull() ? null : Instant.ofEpochMilli(revokedAt)
+                    Instant.ofEpochMilli(result.getLong("updatedAt")), revokedAt
                 ));
             }
         } catch (final SQLException e) {
