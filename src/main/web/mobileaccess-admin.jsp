@@ -6,8 +6,14 @@
 <%@ page import="org.jivesoftware.util.CookieUtils" %>
 <%@ page import="org.jivesoftware.util.ParamUtils" %>
 <%@ page import="org.jivesoftware.util.StringUtils" %>
+<%@ page import="org.slf4j.Logger" %>
+<%@ page import="org.slf4j.LoggerFactory" %>
 <%@ page import="ru.krimm.openfire.mobileaccess.MobileAccessPlugin" %>
 <%@ taglib uri="admin" prefix="admin" %>
+
+<%!
+    private static final Logger LOGGER = LoggerFactory.getLogger("ru.krimm.openfire.mobileaccess.admin.jsp");
+%>
 
 <%
     final WebManager webManager = new WebManager();
@@ -18,37 +24,68 @@
     final boolean changePassword = request.getParameter("changePassword") != null;
     final boolean revokePassword = request.getParameter("revokePassword") != null;
 
+    LOGGER.info(
+        "Mobile Access admin request received: method={}, changePassword={}, revokePassword={}",
+        request.getMethod(),
+        changePassword,
+        revokePassword
+    );
+
     if (changePassword || revokePassword) {
         final Cookie csrfCookie = CookieUtils.getCookie(request, "csrf");
         final String submittedCsrf = ParamUtils.getParameter(request, "csrf");
         if (csrfCookie == null || submittedCsrf == null || !csrfCookie.getValue().equals(submittedCsrf)) {
+            LOGGER.warn(
+                "Mobile Access admin request rejected by CSRF validation: cookiePresent={}, parameterPresent={}",
+                csrfCookie != null,
+                submittedCsrf != null
+            );
             message = "The request was rejected because CSRF validation failed.";
             messageType = "error";
         } else {
             final String actor = webManager.getUser().getUsername();
             final String username = ParamUtils.getStringParameter(request, "username", "");
+            LOGGER.info(
+                "Mobile Access admin operation accepted: actor={}, target={}, action={}",
+                actor,
+                username,
+                changePassword ? "SET_PASSWORD" : "REVOKE_PASSWORD"
+            );
             try {
                 if (changePassword) {
                     final String passwordValue = ParamUtils.getStringParameter(request, "password", "");
                     final String confirmationValue = ParamUtils.getStringParameter(request, "passwordConfirmation", "");
                     final char[] password = passwordValue.toCharArray();
                     try {
+                        LOGGER.info(
+                            "Mobile Access password fields parsed: target={}, passwordPresent={}, confirmationPresent={}, lengthsMatch={}",
+                            username,
+                            !passwordValue.isBlank(),
+                            !confirmationValue.isBlank(),
+                            passwordValue.length() == confirmationValue.length()
+                        );
                         if (!passwordValue.equals(confirmationValue)) {
                             throw new IllegalArgumentException("Password confirmation does not match");
                         }
+                        LOGGER.info("Calling MobileAccessAdministrationService.setPassword for target={}", username);
                         MobileAccessPlugin.administrationService().setPassword(actor, username, password);
+                        LOGGER.info("MobileAccessAdministrationService.setPassword completed for target={}", username);
                         message = "The mobile password was created or replaced successfully.";
                     } finally {
                         Arrays.fill(password, '\0');
                     }
                 } else {
+                    LOGGER.info("Calling MobileAccessAdministrationService.revoke for target={}", username);
                     MobileAccessPlugin.administrationService().revoke(actor, username);
+                    LOGGER.info("MobileAccessAdministrationService.revoke completed for target={}", username);
                     message = "Mobile access was revoked successfully.";
                 }
             } catch (final IllegalArgumentException e) {
+                LOGGER.warn("Mobile Access admin operation rejected for target={}: {}", username, e.getMessage());
                 message = e.getMessage();
                 messageType = "error";
             } catch (final RuntimeException e) {
+                LOGGER.error("Mobile Access admin operation failed for target=" + username, e);
                 message = "The operation failed. Review the Openfire log and Mobile Access audit table.";
                 messageType = "error";
             }
