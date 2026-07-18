@@ -10,5 +10,7 @@
     <minServerVersion>5.1.1</minServerVersion>
     <minJavaVersion>17</minJavaVersion>
     <licenseType>apache</licenseType>
+    <databaseKey>mobileaccess</databaseKey>
+    <databaseVersion>0</databaseVersion>
     <csrfProtectionEnabled>true</csrfProtectionEnabled>
 </plugin>
