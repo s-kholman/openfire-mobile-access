@@ -9,7 +9,9 @@ public interface DirectoryGateway {
 
     Optional<DirectoryUser> findUser(String username);
 
-    boolean groupExists(String groupName);
-
-    boolean isMemberOf(String username, String groupName);
+    /**
+     * Returns {@code true} when the user belongs to at least one group exposed by
+     * the GroupProvider currently configured in Openfire.
+     */
+    boolean isMemberOfConfiguredGroupSet(String username);
 }
