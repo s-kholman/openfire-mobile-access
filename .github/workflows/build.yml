@@ -37,6 +37,9 @@ jobs:
       - name: Build plugin
         run: mvn --batch-mode --no-transfer-progress clean verify
 
+      - name: Build authentication provider
+        run: mvn --batch-mode --no-transfer-progress -f auth-provider/pom.xml clean verify
+
       - name: Prepare deployable plugin
         if: matrix.java == '17'
         run: cp target/mobileaccess-openfire-plugin-assembly.jar target/mobileaccess.jar
@@ -47,4 +50,12 @@ jobs:
         with:
           name: mobileaccess-openfire-plugin
           path: target/mobileaccess.jar
+          if-no-files-found: error
+
+      - name: Upload authentication provider artifact
+        if: matrix.java == '17'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobileaccess-auth-provider
+          path: auth-provider/target/mobileaccess-auth-provider.jar
           if-no-files-found: error
