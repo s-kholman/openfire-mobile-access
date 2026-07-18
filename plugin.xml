@@ -11,4 +11,14 @@
     <minJavaVersion>17</minJavaVersion>
     <licenseType>apache</licenseType>
     <csrfProtectionEnabled>true</csrfProtectionEnabled>
+    <adminconsole>
+        <tab id="server" name="Server" url="mobileaccess-admin.jsp" description="Openfire server administration">
+            <sidebar id="server-settings" name="Server Settings">
+                <item id="mobileaccess-admin" name="Mobile Access"
+                      url="mobileaccess-admin.jsp"
+                      description="Issue or revoke local mobile credentials"
+                      order="90" />
+            </sidebar>
+        </tab>
+    </adminconsole>
 </plugin>
