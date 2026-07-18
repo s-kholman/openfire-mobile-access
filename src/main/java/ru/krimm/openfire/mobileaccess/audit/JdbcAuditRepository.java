@@ -7,9 +7,13 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
 import org.jivesoftware.database.DbConnectionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Persists security-relevant Mobile Access administration events. */
 public final class JdbcAuditRepository {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcAuditRepository.class);
 
     private static final String INSERT = """
         INSERT INTO ofMobileAccessAudit (eventAt, actor, action, targetUsername, outcome, details)
@@ -28,6 +32,13 @@ public final class JdbcAuditRepository {
         Objects.requireNonNull(action);
         Objects.requireNonNull(outcome);
 
+        LOGGER.info(
+            "JdbcAuditRepository.record entered: actor={}, target={}, action={}, outcome={}",
+            actor,
+            targetUsername,
+            action,
+            outcome
+        );
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(INSERT)) {
             statement.setLong(1, eventAt.toEpochMilli());
@@ -36,8 +47,19 @@ public final class JdbcAuditRepository {
             statement.setString(4, normalize(targetUsername));
             statement.setString(5, outcome.name());
             statement.setString(6, truncate(details, 1000));
-            statement.executeUpdate();
+            final int affectedRows = statement.executeUpdate();
+            LOGGER.info(
+                "Audit insert completed: target={}, action={}, outcome={}, affectedRows={}",
+                targetUsername,
+                action,
+                outcome,
+                affectedRows
+            );
         } catch (final SQLException e) {
+            LOGGER.error(
+                "Audit insert failed: target=" + targetUsername + ", action=" + action + ", outcome=" + outcome,
+                e
+            );
             throw new IllegalStateException("Unable to write Mobile Access audit event", e);
         }
     }
