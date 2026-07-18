@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ru.krimm.openfire.mobileaccess.credential.JdbcMobileCredentialRepository;
-import ru.krimm.openfire.mobileaccess.credential.MobileAccessSchemaManager;
 import ru.krimm.openfire.mobileaccess.credential.MobileCredentialService;
 import ru.krimm.openfire.mobileaccess.credential.Pbkdf2PasswordHasher;
 import ru.krimm.openfire.mobileaccess.directory.DirectoryEligibilityService;
@@ -33,8 +32,6 @@ public final class MobileAccessPlugin implements Plugin {
     public void initializePlugin(final PluginManager pluginManager, final File pluginDirectory) {
         Objects.requireNonNull(pluginManager, "pluginManager must not be null");
         this.pluginDirectory = Objects.requireNonNull(pluginDirectory, "pluginDirectory must not be null");
-
-        new MobileAccessSchemaManager().ensureSchema();
 
         final String allowedGroup = JiveGlobals.getProperty(ALLOWED_GROUP_PROPERTY, DEFAULT_ALLOWED_GROUP);
         directoryEligibilityService = new DirectoryEligibilityService(new OpenfireDirectoryGateway(), allowedGroup);
