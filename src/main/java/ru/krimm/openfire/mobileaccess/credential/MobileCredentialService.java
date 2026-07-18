@@ -28,7 +28,7 @@ public final class MobileCredentialService {
 
     public void setPassword(final String username, final char[] password) {
         final String normalizedUsername = normalize(username);
-        final EligibilityResult eligibility = eligibilityService.check(normalizedUsername);
+        final EligibilityResult eligibility = eligibilityService.evaluate(normalizedUsername);
         if (!eligibility.isEligible()) {
             throw new IllegalArgumentException("User is not eligible for mobile access: " + eligibility.status());
         }
