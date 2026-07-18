@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+    <class>ru.krimm.openfire.mobileaccess.MobileAccessPlugin</class>
+    <name>Mobile Access</name>
+    <description>Provides separate local mobile credentials for LDAP-backed Openfire users while preserving Kerberos SSO for domain Windows clients.</description>
+    <author>s-kholman</author>
+    <version>${project.version}</version>
+    <date>2026-07-18</date>
+    <url>https://github.com/s-kholman/openfire-mobile-access</url>
+    <minServerVersion>5.1.1</minServerVersion>
+    <minJavaVersion>17</minJavaVersion>
+    <licenseType>apache</licenseType>
+    <csrfProtectionEnabled>true</csrfProtectionEnabled>
+</plugin>

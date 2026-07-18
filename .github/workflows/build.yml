@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Java ${{ matrix.java }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['17', '21']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Build plugin
+        run: mvn --batch-mode --no-transfer-progress clean verify
+
+      - name: Prepare deployable plugin
+        if: matrix.java == '17'
+        run: cp target/mobileaccess-openfire-plugin-assembly.jar target/mobileaccess.jar
+
+      - name: Upload plugin artifact
+        if: matrix.java == '17'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobileaccess-openfire-plugin
+          path: target/mobileaccess.jar
+          if-no-files-found: error
