@@ -1,24 +1,43 @@
 package ru.krimm.openfire.mobileaccess.auth;
 
+import java.sql.SQLException;
+import java.util.Locale;
 import org.jivesoftware.openfire.auth.AuthProvider;
 import org.jivesoftware.openfire.auth.ConnectionException;
 import org.jivesoftware.openfire.auth.InternalUnauthenticatedException;
 import org.jivesoftware.openfire.auth.UnauthorizedException;
 import org.jivesoftware.openfire.user.UserNotFoundException;
 
-/**
- * Authentication provider that will validate local mobile credentials.
- *
- * <p>This class must be installed on the Openfire core classpath, not only inside
- * the plugin classloader. Credential persistence and verification are introduced
- * in a separate change.</p>
- */
+/** Authentication provider for locally managed mobile credentials. */
 public final class MobileAccessAuthProvider implements AuthProvider {
+
+    private final JdbcCredentialStore credentialStore = new JdbcCredentialStore();
+    private final Pbkdf2CredentialVerifier verifier = new Pbkdf2CredentialVerifier();
 
     @Override
     public void authenticate(final String username, final String password)
             throws UnauthorizedException, ConnectionException, InternalUnauthenticatedException {
-        throw new UnauthorizedException("Mobile Access credential verification is not configured yet");
+        if (username == null || username.isBlank() || password == null || password.isEmpty()) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+
+        final String normalizedUsername = normalizeUsername(username);
+        try {
+            final StoredCredential credential = credentialStore.find(normalizedUsername)
+                .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
+
+            if (!verifier.verify(password.toCharArray(), credential)) {
+                throw new UnauthorizedException("Invalid username or password");
+            }
+        } catch (final SQLException e) {
+            throw new ConnectionException("Unable to access the Mobile Access credential store", e);
+        }
+    }
+
+    private static String normalizeUsername(final String username) {
+        final int at = username.indexOf('@');
+        final String localpart = at >= 0 ? username.substring(0, at) : username;
+        return localpart.trim().toLowerCase(Locale.ROOT);
     }
 
     @Override
