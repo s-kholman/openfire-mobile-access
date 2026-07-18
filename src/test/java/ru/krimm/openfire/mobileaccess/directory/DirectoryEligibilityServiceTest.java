@@ -11,13 +11,12 @@ import org.junit.Test;
 public class DirectoryEligibilityServiceTest {
 
     @Test
-    public void returnsEligibleForExistingAllowedGroupMember() {
+    public void returnsEligibleForMemberOfConfiguredGroupSet() {
         final FakeDirectoryGateway gateway = new FakeDirectoryGateway();
         gateway.user = Optional.of(new DirectoryUser("ivanov", "Ivan Ivanov", "ivanov@example.test"));
-        gateway.groupExists = true;
         gateway.member = true;
 
-        final EligibilityResult result = new DirectoryEligibilityService(gateway, "Openfire-Users")
+        final EligibilityResult result = new DirectoryEligibilityService(gateway)
             .evaluate(" IVANOV ");
 
         assertTrue(result.isEligible());
@@ -25,44 +24,32 @@ public class DirectoryEligibilityServiceTest {
     }
 
     @Test
-    public void rejectsUnknownUserBeforeCheckingGroup() {
+    public void rejectsUnknownUserBeforeCheckingGroups() {
         final FakeDirectoryGateway gateway = new FakeDirectoryGateway();
 
-        final EligibilityResult result = new DirectoryEligibilityService(gateway, "Openfire-Users")
+        final EligibilityResult result = new DirectoryEligibilityService(gateway)
             .evaluate("missing");
 
         assertEquals(EligibilityStatus.USER_NOT_FOUND, result.status());
-        assertFalse(gateway.groupChecked);
+        assertFalse(gateway.groupsChecked);
     }
 
     @Test
-    public void rejectsMissingAllowedGroup() {
+    public void rejectsUserOutsideConfiguredGroupSet() {
         final FakeDirectoryGateway gateway = new FakeDirectoryGateway();
         gateway.user = Optional.of(new DirectoryUser("ivanov", null, null));
 
-        final EligibilityResult result = new DirectoryEligibilityService(gateway, "Openfire-Users")
-            .evaluate("ivanov");
-
-        assertEquals(EligibilityStatus.GROUP_NOT_FOUND, result.status());
-    }
-
-    @Test
-    public void rejectsUserOutsideAllowedGroup() {
-        final FakeDirectoryGateway gateway = new FakeDirectoryGateway();
-        gateway.user = Optional.of(new DirectoryUser("ivanov", null, null));
-        gateway.groupExists = true;
-
-        final EligibilityResult result = new DirectoryEligibilityService(gateway, "Openfire-Users")
+        final EligibilityResult result = new DirectoryEligibilityService(gateway)
             .evaluate("ivanov");
 
         assertEquals(EligibilityStatus.USER_NOT_IN_ALLOWED_GROUP, result.status());
+        assertTrue(gateway.groupsChecked);
     }
 
     private static final class FakeDirectoryGateway implements DirectoryGateway {
         private Optional<DirectoryUser> user = Optional.empty();
-        private boolean groupExists;
         private boolean member;
-        private boolean groupChecked;
+        private boolean groupsChecked;
 
         @Override
         public Optional<DirectoryUser> findUser(final String username) {
@@ -70,13 +57,8 @@ public class DirectoryEligibilityServiceTest {
         }
 
         @Override
-        public boolean groupExists(final String groupName) {
-            groupChecked = true;
-            return groupExists;
-        }
-
-        @Override
-        public boolean isMemberOf(final String username, final String groupName) {
+        public boolean isMemberOfConfiguredGroupSet(final String username) {
+            groupsChecked = true;
             return member;
         }
     }
