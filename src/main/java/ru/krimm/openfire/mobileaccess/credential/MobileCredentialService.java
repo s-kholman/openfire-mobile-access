@@ -4,10 +4,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.krimm.openfire.mobileaccess.directory.DirectoryEligibilityService;
 import ru.krimm.openfire.mobileaccess.directory.EligibilityResult;
 
 public final class MobileCredentialService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MobileCredentialService.class);
 
     private final DirectoryEligibilityService eligibilityService;
     private final MobileCredentialRepository repository;
@@ -27,17 +31,41 @@ public final class MobileCredentialService {
     }
 
     public void setPassword(final String username, final char[] password) {
+        LOGGER.info("MobileCredentialService.setPassword entered for target={}", username);
         final String normalizedUsername = normalize(username);
+        LOGGER.info("Evaluating directory eligibility for target={}", normalizedUsername);
         final EligibilityResult eligibility = eligibilityService.evaluate(normalizedUsername);
+        LOGGER.info(
+            "Directory eligibility evaluated for target={}: status={}, eligible={}",
+            normalizedUsername,
+            eligibility.status(),
+            eligibility.isEligible()
+        );
         if (!eligibility.isEligible()) {
             throw new IllegalArgumentException("User is not eligible for mobile access: " + eligibility.status());
         }
+
         validatePassword(password);
-        repository.save(normalizedUsername, passwordHasher.hash(password), Instant.now(clock));
+        LOGGER.info("Mobile password validation completed for target={}", normalizedUsername);
+
+        final Pbkdf2PasswordHasher.HashedPassword hashedPassword = passwordHasher.hash(password);
+        LOGGER.info(
+            "Mobile password hashing completed for target={}: algorithm={}, iterations={}",
+            normalizedUsername,
+            hashedPassword.algorithm(),
+            hashedPassword.iterations()
+        );
+
+        LOGGER.info("Calling MobileCredentialRepository.save for target={}", normalizedUsername);
+        repository.save(normalizedUsername, hashedPassword, Instant.now(clock));
+        LOGGER.info("MobileCredentialRepository.save completed for target={}", normalizedUsername);
     }
 
     public void revoke(final String username) {
-        repository.revoke(normalize(username), Instant.now(clock));
+        final String normalizedUsername = normalize(username);
+        LOGGER.info("Calling MobileCredentialRepository.revoke for target={}", normalizedUsername);
+        repository.revoke(normalizedUsername, Instant.now(clock));
+        LOGGER.info("MobileCredentialRepository.revoke completed for target={}", normalizedUsername);
     }
 
     private static String normalize(final String username) {
