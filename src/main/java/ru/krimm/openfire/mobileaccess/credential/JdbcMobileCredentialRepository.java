@@ -9,8 +9,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.jivesoftware.database.DbConnectionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public final class JdbcMobileCredentialRepository implements MobileCredentialRepository {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcMobileCredentialRepository.class);
 
     private static final String UPSERT = """
         INSERT INTO ofMobileAccessCredential
@@ -31,6 +36,7 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
 
     @Override
     public void save(final String username, final Pbkdf2PasswordHasher.HashedPassword password, final Instant changedAt) {
+        LOGGER.info("[RID:{}] SQL UPSERT started: table=ofMobileAccessCredential, username={}, algorithm={}, iterations={}", rid(), username, password.algorithm(), password.iterations());
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(UPSERT)) {
             statement.setString(1, username);
@@ -40,8 +46,13 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
             statement.setString(5, password.hash());
             statement.setLong(6, changedAt.toEpochMilli());
             statement.setLong(7, changedAt.toEpochMilli());
-            statement.executeUpdate();
+            final int affectedRows = statement.executeUpdate();
+            LOGGER.info("[RID:{}] SQL UPSERT completed: username={}, affectedRows={}", rid(), username, affectedRows);
+            if (affectedRows < 1) {
+                throw new IllegalStateException("Unable to save mobile credential: SQL affected zero rows");
+            }
         } catch (final SQLException e) {
+            LOGGER.error("[RID:{}] SQL UPSERT failed: username={}, sqlState={}, errorCode={}", rid(), username, e.getSQLState(), e.getErrorCode(), e);
             throw new IllegalStateException("Unable to save mobile credential", e);
         }
     }
@@ -66,12 +77,15 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
 
     @Override
     public void delete(final String username) {
+        LOGGER.info("[RID:{}] SQL DELETE started: username={}", rid(), username);
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                  "DELETE FROM ofMobileAccessCredential WHERE username = ?")) {
             statement.setString(1, username);
-            statement.executeUpdate();
+            final int affectedRows = statement.executeUpdate();
+            LOGGER.info("[RID:{}] SQL DELETE completed: username={}, affectedRows={}", rid(), username, affectedRows);
         } catch (final SQLException e) {
+            LOGGER.error("[RID:{}] SQL DELETE failed: username={}, sqlState={}, errorCode={}", rid(), username, e.getSQLState(), e.getErrorCode(), e);
             throw new IllegalStateException("Unable to delete mobile credential", e);
         }
     }
@@ -86,6 +100,7 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
                 return result.next() ? Optional.of(map(result)) : Optional.empty();
             }
         } catch (final SQLException e) {
+            LOGGER.error("[RID:{}] SQL SELECT failed: username={}, sqlState={}, errorCode={}", rid(), username, e.getSQLState(), e.getErrorCode(), e);
             throw new IllegalStateException("Unable to read mobile credential", e);
         }
     }
@@ -100,13 +115,16 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
             while (result.next()) {
                 records.add(map(result));
             }
+            LOGGER.info("[RID:{}] SQL list completed: count={}", rid(), records.size());
             return records;
         } catch (final SQLException e) {
+            LOGGER.error("[RID:{}] SQL list failed: sqlState={}, errorCode={}", rid(), e.getSQLState(), e.getErrorCode(), e);
             throw new IllegalStateException("Unable to list mobile credentials", e);
         }
     }
 
     private static void executeUpdate(final String sql, final String username, final Instant changedAt) {
+        LOGGER.info("[RID:{}] SQL state update started: username={}", rid(), username);
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             if (sql.contains("revokedAt = ?")) {
@@ -117,8 +135,13 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
                 statement.setLong(1, changedAt.toEpochMilli());
                 statement.setString(2, username);
             }
-            statement.executeUpdate();
+            final int affectedRows = statement.executeUpdate();
+            LOGGER.info("[RID:{}] SQL state update completed: username={}, affectedRows={}", rid(), username, affectedRows);
+            if (affectedRows < 1) {
+                throw new IllegalStateException("Unable to update mobile credential state: SQL affected zero rows");
+            }
         } catch (final SQLException e) {
+            LOGGER.error("[RID:{}] SQL state update failed: username={}, sqlState={}, errorCode={}", rid(), username, e.getSQLState(), e.getErrorCode(), e);
             throw new IllegalStateException("Unable to update mobile credential state", e);
         }
     }
@@ -136,5 +159,10 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
             Instant.ofEpochMilli(result.getLong("updatedAt")),
             revokedAt
         );
+    }
+
+    private static String rid() {
+        final String value = MDC.get("mobileAccessRequestId");
+        return value == null ? "none" : value;
     }
 }
