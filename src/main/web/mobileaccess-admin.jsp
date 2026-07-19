@@ -11,7 +11,6 @@
 <%@ page import="org.jivesoftware.util.StringUtils" %>
 <%@ page import="ru.krimm.openfire.mobileaccess.MobileAccessPlugin" %>
 <%@ page import="ru.krimm.openfire.mobileaccess.admin.MobileAccessAdministrationService.ManagedMobileUser" %>
-<%@ taglib uri="admin" prefix="admin" %>
 
 <%
     final WebManager webManager = new WebManager();
@@ -96,7 +95,10 @@
 </head>
 <body>
 <% if (message != null) { %>
-    <admin:infobox type="<%= messageType %>"><%= StringEscapeUtils.escapeHtml4(message) %></admin:infobox>
+    <div class="jive-contentBox">
+        <strong><%= "error".equals(messageType) ? "Error" : "Success" %>:</strong>
+        <%= StringEscapeUtils.escapeHtml4(message) %>
+    </div>
 <% } %>
 
 <p>Manage separate mobile credentials for LDAP-backed Openfire users. Blocking preserves the password; deletion removes the credential permanently.</p>
