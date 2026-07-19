@@ -6,7 +6,6 @@ import java.util.Objects;
 
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
-import org.jivesoftware.util.JiveGlobals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,10 +20,7 @@ import ru.krimm.openfire.mobileaccess.directory.OpenfireDirectoryGateway;
 /** Entry point for the Mobile Access Openfire plugin. */
 public final class MobileAccessPlugin implements Plugin {
 
-    public static final String VERSION = "0.2.7-SNAPSHOT";
-
-    static final String ALLOWED_GROUP_PROPERTY = "plugin.mobileaccess.allowedGroup";
-    static final String DEFAULT_ALLOWED_GROUP = "Openfire-Users";
+    public static final String VERSION = "0.2.8-SNAPSHOT";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MobileAccessPlugin.class);
     private static volatile MobileAccessPlugin instance;
@@ -40,8 +36,7 @@ public final class MobileAccessPlugin implements Plugin {
         this.pluginDirectory = Objects.requireNonNull(pluginDirectory, "pluginDirectory must not be null");
 
         final Clock clock = Clock.systemUTC();
-        final String allowedGroup = JiveGlobals.getProperty(ALLOWED_GROUP_PROPERTY, DEFAULT_ALLOWED_GROUP);
-        directoryEligibilityService = new DirectoryEligibilityService(new OpenfireDirectoryGateway(), allowedGroup);
+        directoryEligibilityService = new DirectoryEligibilityService(new OpenfireDirectoryGateway());
         mobileCredentialService = new MobileCredentialService(
             directoryEligibilityService,
             new JdbcMobileCredentialRepository(),
@@ -56,10 +51,9 @@ public final class MobileAccessPlugin implements Plugin {
         instance = this;
 
         LOGGER.info(
-            "Mobile Access plugin {} initialized from {} with allowed directory group '{}'",
+            "Mobile Access plugin {} initialized from {}; directory eligibility is delegated to the configured UserProvider",
             VERSION,
-            pluginDirectory.getAbsolutePath(),
-            allowedGroup
+            pluginDirectory.getAbsolutePath()
         );
     }
 
