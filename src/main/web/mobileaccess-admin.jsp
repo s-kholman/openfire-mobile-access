@@ -5,7 +5,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="javax.servlet.http.Cookie" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="org.jivesoftware.util.WebManager" %>
+<%@ page import="org.jivesoftware.admin.WebManager" %>
 <%@ page import="org.jivesoftware.util.CookieUtils" %>
 <%@ page import="org.jivesoftware.util.ParamUtils" %>
 <%@ page import="org.jivesoftware.util.StringUtils" %>
@@ -19,8 +19,11 @@
 
     String message = null;
     String messageType = "success";
-    final String operation = ParamUtils.getStringParameter(request, "operation", "");
-    final boolean hasOperation = "POST".equalsIgnoreCase(request.getMethod()) && !operation.isBlank();
+    final boolean changePassword = request.getParameter("changePassword") != null;
+    final String operation = changePassword
+        ? "setPassword"
+        : ParamUtils.getStringParameter(request, "operation", "");
+    final boolean hasOperation = changePassword || ("POST".equalsIgnoreCase(request.getMethod()) && !operation.isBlank());
 
     if (hasOperation) {
         final Cookie csrfCookie = CookieUtils.getCookie(request, "csrf");
@@ -93,10 +96,7 @@
 </head>
 <body>
 <% if (message != null) { %>
-    <div class="jive-contentBox">
-        <strong><%= "error".equals(messageType) ? "Error" : "Success" %>:</strong>
-        <%= StringEscapeUtils.escapeHtml4(message) %>
-    </div>
+    <admin:infobox type="<%= messageType %>"><%= StringEscapeUtils.escapeHtml4(message) %></admin:infobox>
 <% } %>
 
 <p>Manage separate mobile credentials for LDAP-backed Openfire users. Blocking preserves the password; deletion removes the credential permanently.</p>
@@ -104,14 +104,13 @@
 <div class="jive-contentBoxHeader">Create or replace mobile password</div>
 <div class="jive-contentBox">
     <form action="mobileaccess-admin.jsp" method="post" autocomplete="off">
-        <input type="hidden" name="csrf" value="<%= StringEscapeUtils.escapeHtml4(csrf) %>"/>
-        <input type="hidden" name="operation" value="setPassword"/>
+        <input type="hidden" name="csrf" value="<%= csrf %>"/>
         <table cellspacing="0" border="0">
             <tr><td><label for="username">Username</label></td><td><input id="username" name="username" type="text" maxlength="64" required/></td></tr>
             <tr><td><label for="password">New password</label></td><td><input id="password" name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"/></td></tr>
             <tr><td><label for="passwordConfirmation">Confirm password</label></td><td><input id="passwordConfirmation" name="passwordConfirmation" type="password" minlength="12" maxlength="256" required autocomplete="new-password"/></td></tr>
         </table>
-        <button type="submit">Create or replace password</button>
+        <button type="submit" name="changePassword">Create or replace password</button>
     </form>
 </div>
 
@@ -140,7 +139,7 @@
             <td><%= user.updatedAt() == null ? "—" : dateFormatter.format(user.updatedAt()) %></td>
             <td>
                 <form action="mobileaccess-admin.jsp" method="post" style="display:inline">
-                    <input type="hidden" name="csrf" value="<%= StringEscapeUtils.escapeHtml4(csrf) %>"/>
+                    <input type="hidden" name="csrf" value="<%= csrf %>"/>
                     <input type="hidden" name="username" value="<%= StringEscapeUtils.escapeHtml4(user.username()) %>"/>
                     <% if (user.enabled()) { %>
                         <button type="submit" name="operation" value="block">Block</button>
