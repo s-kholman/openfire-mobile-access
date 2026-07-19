@@ -48,14 +48,23 @@ public final class MobileAccessAdministrationService {
     }
 
     public void setPassword(final String actor, final String username, final char[] password) {
-        execute(actor, AuditAction.SET_PASSWORD, username, () -> credentialService.setPassword(username, password));
-        if (password != null) {
-            Arrays.fill(password, '\0');
+        try {
+            execute(actor, AuditAction.SET_PASSWORD, username, () -> credentialService.setPassword(username, password));
+        } finally {
+            if (password != null) {
+                Arrays.fill(password, '\0');
+            }
         }
     }
 
     public void block(final String actor, final String username) {
-        execute(actor, AuditAction.BLOCK_ACCESS, username, () -> credentialService.revoke(username));
+        final String normalizedActor = normalize(actor);
+        final String normalized = normalize(username);
+        if (normalized.equals(normalizedActor)) {
+            throw new IllegalArgumentException("You cannot block your own mobile access");
+        }
+        ensureNotLastAdministrator(normalized);
+        execute(actor, AuditAction.BLOCK_ACCESS, normalized, () -> credentialService.revoke(normalized));
     }
 
     public void enable(final String actor, final String username) {
@@ -63,7 +72,12 @@ public final class MobileAccessAdministrationService {
     }
 
     public void delete(final String actor, final String username) {
+        final String normalizedActor = normalize(actor);
         final String normalized = normalize(username);
+        if (normalized.equals(normalizedActor)) {
+            throw new IllegalArgumentException("You cannot delete your own mobile credential");
+        }
+        ensureNotLastAdministrator(normalized);
         execute(actor, AuditAction.DELETE_CREDENTIAL, normalized, () -> {
             credentialService.delete(normalized);
             final Set<String> administrators = readAdministrators();
@@ -74,13 +88,20 @@ public final class MobileAccessAdministrationService {
     }
 
     public void setAdministrator(final String actor, final String username, final boolean administrator) {
+        final String normalizedActor = normalize(actor);
         final String normalized = normalize(username);
         final AuditAction action = administrator ? AuditAction.GRANT_ADMIN : AuditAction.REVOKE_ADMIN;
         execute(actor, action, normalized, () -> {
             final Set<String> administrators = readAdministrators();
             if (administrator) {
+                if (credentialService.find(normalized).isEmpty()) {
+                    throw new IllegalArgumentException("A mobile credential must exist before administrator access is granted");
+                }
                 administrators.add(normalized);
             } else {
+                if (normalized.equals(normalizedActor)) {
+                    throw new IllegalArgumentException("You cannot remove your own administrator access");
+                }
                 if (!administrators.contains(normalized)) {
                     return;
                 }
@@ -91,6 +112,13 @@ public final class MobileAccessAdministrationService {
             }
             writeAdministrators(administrators);
         });
+    }
+
+    private void ensureNotLastAdministrator(final String username) {
+        final Set<String> administrators = readAdministrators();
+        if (administrators.contains(username) && administrators.size() <= 1) {
+            throw new IllegalArgumentException("The last authorized administrator cannot be blocked or deleted");
+        }
     }
 
     private void execute(final String actor, final AuditAction action, final String username, final Runnable operation) {
