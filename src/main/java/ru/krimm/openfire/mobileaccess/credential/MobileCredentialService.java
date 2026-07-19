@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import ru.krimm.openfire.mobileaccess.directory.DirectoryEligibilityService;
 import ru.krimm.openfire.mobileaccess.directory.EligibilityResult;
 
@@ -46,6 +47,10 @@ public final class MobileCredentialService {
 
     public void delete(final String username) {
         repository.delete(requireExisting(username));
+    }
+
+    public Optional<MobileCredentialRecord> find(final String username) {
+        return repository.find(normalize(username));
     }
 
     public List<MobileCredentialRecord> findAll() {
