@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.jivesoftware.database.DbConnectionManager;
 
@@ -23,6 +25,9 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
             updatedAt = EXCLUDED.updatedAt,
             revokedAt = NULL
         """;
+
+    private static final String SELECT_COLUMNS =
+        "username, algorithm, iterations, salt, passwordHash, enabled, updatedAt, revokedAt";
 
     @Override
     public void save(final String username, final Pbkdf2PasswordHasher.HashedPassword password, final Instant changedAt) {
@@ -43,38 +48,93 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
 
     @Override
     public void revoke(final String username, final Instant revokedAt) {
-        final String sql = "UPDATE ofMobileAccessCredential SET enabled = FALSE, revokedAt = ?, updatedAt = ? WHERE username = ?";
+        executeUpdate(
+            "UPDATE ofMobileAccessCredential SET enabled = FALSE, revokedAt = ?, updatedAt = ? WHERE username = ?",
+            username,
+            revokedAt
+        );
+    }
+
+    @Override
+    public void enable(final String username, final Instant changedAt) {
+        executeUpdate(
+            "UPDATE ofMobileAccessCredential SET enabled = TRUE, revokedAt = NULL, updatedAt = ? WHERE username = ?",
+            username,
+            changedAt
+        );
+    }
+
+    @Override
+    public void delete(final String username) {
         try (Connection connection = DbConnectionManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setLong(1, revokedAt.toEpochMilli());
-            statement.setLong(2, revokedAt.toEpochMilli());
-            statement.setString(3, username);
+             PreparedStatement statement = connection.prepareStatement(
+                 "DELETE FROM ofMobileAccessCredential WHERE username = ?")) {
+            statement.setString(1, username);
             statement.executeUpdate();
         } catch (final SQLException e) {
-            throw new IllegalStateException("Unable to revoke mobile credential", e);
+            throw new IllegalStateException("Unable to delete mobile credential", e);
         }
     }
 
     @Override
     public Optional<MobileCredentialRecord> find(final String username) {
-        final String sql = "SELECT username, algorithm, iterations, salt, passwordHash, enabled, updatedAt, revokedAt FROM ofMobileAccessCredential WHERE username = ?";
+        final String sql = "SELECT " + SELECT_COLUMNS + " FROM ofMobileAccessCredential WHERE username = ?";
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
             try (ResultSet result = statement.executeQuery()) {
-                if (!result.next()) {
-                    return Optional.empty();
-                }
-                final long revokedAtValue = result.getLong("revokedAt");
-                final Instant revokedAt = result.wasNull() ? null : Instant.ofEpochMilli(revokedAtValue);
-                return Optional.of(new MobileCredentialRecord(
-                    result.getString("username"), result.getString("algorithm"), result.getInt("iterations"),
-                    result.getString("salt"), result.getString("passwordHash"), result.getBoolean("enabled"),
-                    Instant.ofEpochMilli(result.getLong("updatedAt")), revokedAt
-                ));
+                return result.next() ? Optional.of(map(result)) : Optional.empty();
             }
         } catch (final SQLException e) {
             throw new IllegalStateException("Unable to read mobile credential", e);
         }
+    }
+
+    @Override
+    public List<MobileCredentialRecord> findAll() {
+        final String sql = "SELECT " + SELECT_COLUMNS + " FROM ofMobileAccessCredential ORDER BY username";
+        final List<MobileCredentialRecord> records = new ArrayList<>();
+        try (Connection connection = DbConnectionManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                records.add(map(result));
+            }
+            return records;
+        } catch (final SQLException e) {
+            throw new IllegalStateException("Unable to list mobile credentials", e);
+        }
+    }
+
+    private static void executeUpdate(final String sql, final String username, final Instant changedAt) {
+        try (Connection connection = DbConnectionManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            if (sql.contains("revokedAt = ?")) {
+                statement.setLong(1, changedAt.toEpochMilli());
+                statement.setLong(2, changedAt.toEpochMilli());
+                statement.setString(3, username);
+            } else {
+                statement.setLong(1, changedAt.toEpochMilli());
+                statement.setString(2, username);
+            }
+            statement.executeUpdate();
+        } catch (final SQLException e) {
+            throw new IllegalStateException("Unable to update mobile credential state", e);
+        }
+    }
+
+    private static MobileCredentialRecord map(final ResultSet result) throws SQLException {
+        final long revokedAtValue = result.getLong("revokedAt");
+        final Instant revokedAt = result.wasNull() ? null : Instant.ofEpochMilli(revokedAtValue);
+        return new MobileCredentialRecord(
+            result.getString("username"),
+            result.getString("algorithm"),
+            result.getInt("iterations"),
+            result.getString("salt"),
+            result.getString("passwordHash"),
+            result.getBoolean("enabled"),
+            Instant.ofEpochMilli(result.getLong("updatedAt")),
+            revokedAt
+        );
     }
 }
