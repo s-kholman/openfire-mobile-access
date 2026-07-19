@@ -21,7 +21,7 @@ import ru.krimm.openfire.mobileaccess.directory.OpenfireDirectoryGateway;
 /** Entry point for the Mobile Access Openfire plugin. */
 public final class MobileAccessPlugin implements Plugin {
 
-    public static final String VERSION = "0.2.5-SNAPSHOT";
+    public static final String VERSION = "0.2.6-SNAPSHOT";
 
     static final String ALLOWED_GROUP_PROPERTY = "plugin.mobileaccess.allowedGroup";
     static final String DEFAULT_ALLOWED_GROUP = "Openfire-Users";
