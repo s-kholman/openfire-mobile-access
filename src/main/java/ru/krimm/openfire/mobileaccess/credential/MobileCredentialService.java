@@ -6,10 +6,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import ru.krimm.openfire.mobileaccess.directory.DirectoryEligibilityService;
 import ru.krimm.openfire.mobileaccess.directory.EligibilityResult;
 
 public final class MobileCredentialService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MobileCredentialService.class);
 
     private final DirectoryEligibilityService eligibilityService;
     private final MobileCredentialRepository repository;
@@ -30,9 +35,13 @@ public final class MobileCredentialService {
 
     public void setPassword(final String username, final char[] password) {
         final String normalizedUsername = normalize(username);
+        LOGGER.info("[RID:{}] Credential service setPassword started: username={}, passwordLength={}", rid(), normalizedUsername, password == null ? -1 : password.length);
         requireEligible(normalizedUsername);
+        LOGGER.info("[RID:{}] Directory eligibility passed: username={}", rid(), normalizedUsername);
         validatePassword(password);
+        LOGGER.info("[RID:{}] Password validation passed: username={}", rid(), normalizedUsername);
         repository.save(normalizedUsername, passwordHasher.hash(password), Instant.now(clock));
+        LOGGER.info("[RID:{}] Credential repository save completed: username={}", rid(), normalizedUsername);
     }
 
     public void revoke(final String username) {
@@ -58,7 +67,9 @@ public final class MobileCredentialService {
     }
 
     private void requireEligible(final String username) {
+        LOGGER.info("[RID:{}] Evaluating directory eligibility: username={}", rid(), username);
         final EligibilityResult eligibility = eligibilityService.evaluate(username);
+        LOGGER.info("[RID:{}] Directory eligibility result: username={}, status={}, eligible={}", rid(), username, eligibility.status(), eligibility.isEligible());
         if (!eligibility.isEligible()) {
             throw new IllegalArgumentException("User is not eligible for mobile access: " + eligibility.status());
         }
@@ -98,5 +109,10 @@ public final class MobileCredentialService {
         if (password.length > 256) {
             throw new IllegalArgumentException("Mobile password is too long");
         }
+    }
+
+    private static String rid() {
+        final String value = MDC.get("mobileAccessRequestId");
+        return value == null ? "none" : value;
     }
 }
