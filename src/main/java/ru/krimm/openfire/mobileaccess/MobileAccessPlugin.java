@@ -21,6 +21,8 @@ import ru.krimm.openfire.mobileaccess.directory.OpenfireDirectoryGateway;
 /** Entry point for the Mobile Access Openfire plugin. */
 public final class MobileAccessPlugin implements Plugin {
 
+    public static final String VERSION = "0.2.1-SNAPSHOT";
+
     static final String ALLOWED_GROUP_PROPERTY = "plugin.mobileaccess.allowedGroup";
     static final String DEFAULT_ALLOWED_GROUP = "Openfire-Users";
 
@@ -54,7 +56,8 @@ public final class MobileAccessPlugin implements Plugin {
         instance = this;
 
         LOGGER.info(
-            "Mobile Access plugin initialized from {} with allowed directory group '{}'",
+            "Mobile Access plugin {} initialized from {} with allowed directory group '{}'",
+            VERSION,
             pluginDirectory.getAbsolutePath(),
             allowedGroup
         );
@@ -62,7 +65,7 @@ public final class MobileAccessPlugin implements Plugin {
 
     @Override
     public void destroyPlugin() {
-        LOGGER.info("Mobile Access plugin destroyed");
+        LOGGER.info("Mobile Access plugin {} destroyed", VERSION);
         instance = null;
         administrationService = null;
         mobileCredentialService = null;
