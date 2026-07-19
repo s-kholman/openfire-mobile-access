@@ -19,13 +19,8 @@
 
     String message = null;
     String messageType = "success";
-    final boolean changePassword = request.getParameter("changePassword") != null;
-    final boolean blockAccess = request.getParameter("blockAccess") != null;
-    final boolean enableAccess = request.getParameter("enableAccess") != null;
-    final boolean deleteCredential = request.getParameter("deleteCredential") != null;
-    final boolean grantAdmin = request.getParameter("grantAdmin") != null;
-    final boolean revokeAdmin = request.getParameter("revokeAdmin") != null;
-    final boolean hasOperation = changePassword || blockAccess || enableAccess || deleteCredential || grantAdmin || revokeAdmin;
+    final String operation = ParamUtils.getStringParameter(request, "operation", "");
+    final boolean hasOperation = "POST".equalsIgnoreCase(request.getMethod()) && !operation.isBlank();
 
     if (hasOperation) {
         final Cookie csrfCookie = CookieUtils.getCookie(request, "csrf");
@@ -37,40 +32,49 @@
             final String actor = webManager.getUser().getUsername();
             final String username = ParamUtils.getStringParameter(request, "username", "");
             try {
-                if (changePassword) {
-                    final String passwordValue = ParamUtils.getStringParameter(request, "password", "");
-                    final String confirmationValue = ParamUtils.getStringParameter(request, "passwordConfirmation", "");
-                    final char[] password = passwordValue.toCharArray();
-                    try {
-                        if (!passwordValue.equals(confirmationValue)) {
-                            throw new IllegalArgumentException("Password confirmation does not match");
+                switch (operation) {
+                    case "setPassword":
+                        final String passwordValue = ParamUtils.getStringParameter(request, "password", "");
+                        final String confirmationValue = ParamUtils.getStringParameter(request, "passwordConfirmation", "");
+                        final char[] password = passwordValue.toCharArray();
+                        try {
+                            if (!passwordValue.equals(confirmationValue)) {
+                                throw new IllegalArgumentException("Password confirmation does not match");
+                            }
+                            MobileAccessPlugin.administrationService().setPassword(actor, username, password);
+                            message = "The mobile password was created or replaced successfully.";
+                        } finally {
+                            Arrays.fill(password, '\0');
                         }
-                        MobileAccessPlugin.administrationService().setPassword(actor, username, password);
-                        message = "The mobile password was created or replaced successfully.";
-                    } finally {
-                        Arrays.fill(password, '\0');
-                    }
-                } else if (blockAccess) {
-                    MobileAccessPlugin.administrationService().block(actor, username);
-                    message = "Mobile access was blocked.";
-                } else if (enableAccess) {
-                    MobileAccessPlugin.administrationService().enable(actor, username);
-                    message = "Mobile access was enabled.";
-                } else if (deleteCredential) {
-                    MobileAccessPlugin.administrationService().delete(actor, username);
-                    message = "The mobile credential was deleted.";
-                } else if (grantAdmin) {
-                    MobileAccessPlugin.administrationService().setAdministrator(actor, username, true);
-                    message = "Administrator access was granted.";
-                } else {
-                    MobileAccessPlugin.administrationService().setAdministrator(actor, username, false);
-                    message = "Administrator access was revoked.";
+                        break;
+                    case "block":
+                        MobileAccessPlugin.administrationService().block(actor, username);
+                        message = "Mobile access was blocked.";
+                        break;
+                    case "enable":
+                        MobileAccessPlugin.administrationService().enable(actor, username);
+                        message = "Mobile access was enabled.";
+                        break;
+                    case "delete":
+                        MobileAccessPlugin.administrationService().delete(actor, username);
+                        message = "The mobile credential was deleted.";
+                        break;
+                    case "grantAdmin":
+                        MobileAccessPlugin.administrationService().setAdministrator(actor, username, true);
+                        message = "Administrator access was granted.";
+                        break;
+                    case "revokeAdmin":
+                        MobileAccessPlugin.administrationService().setAdministrator(actor, username, false);
+                        message = "Administrator access was revoked.";
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unknown administration operation: " + operation);
                 }
             } catch (final IllegalArgumentException e) {
                 message = e.getMessage();
                 messageType = "error";
             } catch (final RuntimeException e) {
-                message = "The operation failed. Review the Openfire log and Mobile Access audit table.";
+                message = e.getClass().getSimpleName() + ": " + (e.getMessage() == null ? "Operation failed" : e.getMessage());
                 messageType = "error";
             }
         }
@@ -101,12 +105,13 @@
 <div class="jive-contentBox">
     <form action="mobileaccess-admin.jsp" method="post" autocomplete="off">
         <input type="hidden" name="csrf" value="<%= StringEscapeUtils.escapeHtml4(csrf) %>"/>
+        <input type="hidden" name="operation" value="setPassword"/>
         <table cellspacing="0" border="0">
             <tr><td><label for="username">Username</label></td><td><input id="username" name="username" type="text" maxlength="64" required/></td></tr>
             <tr><td><label for="password">New password</label></td><td><input id="password" name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"/></td></tr>
             <tr><td><label for="passwordConfirmation">Confirm password</label></td><td><input id="passwordConfirmation" name="passwordConfirmation" type="password" minlength="12" maxlength="256" required autocomplete="new-password"/></td></tr>
         </table>
-        <button type="submit" name="changePassword">Create or replace password</button>
+        <button type="submit">Create or replace password</button>
     </form>
 </div>
 
@@ -138,16 +143,16 @@
                     <input type="hidden" name="csrf" value="<%= StringEscapeUtils.escapeHtml4(csrf) %>"/>
                     <input type="hidden" name="username" value="<%= StringEscapeUtils.escapeHtml4(user.username()) %>"/>
                     <% if (user.enabled()) { %>
-                        <button type="submit" name="blockAccess">Block</button>
+                        <button type="submit" name="operation" value="block">Block</button>
                     <% } else { %>
-                        <button type="submit" name="enableAccess">Enable</button>
+                        <button type="submit" name="operation" value="enable">Enable</button>
                     <% } %>
                     <% if (user.administrator()) { %>
-                        <button type="submit" name="revokeAdmin">Remove administrator</button>
+                        <button type="submit" name="operation" value="revokeAdmin">Remove administrator</button>
                     <% } else { %>
-                        <button type="submit" name="grantAdmin">Make administrator</button>
+                        <button type="submit" name="operation" value="grantAdmin">Make administrator</button>
                     <% } %>
-                    <button type="submit" name="deleteCredential" onclick="return confirm('Delete the mobile credential for this user?');">Delete</button>
+                    <button type="submit" name="operation" value="delete" onclick="return confirm('Delete the mobile credential for this user?');">Delete</button>
                 </form>
             </td>
         </tr>
