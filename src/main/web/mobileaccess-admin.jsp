@@ -1,5 +1,8 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
+<%@ page import="java.time.ZoneId" %>
+<%@ page import="java.time.format.DateTimeFormatter" %>
 <%@ page import="java.util.Arrays" %>
+<%@ page import="java.util.List" %>
 <%@ page import="javax.servlet.http.Cookie" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.jivesoftware.util.WebManager" %>
@@ -7,6 +10,7 @@
 <%@ page import="org.jivesoftware.util.ParamUtils" %>
 <%@ page import="org.jivesoftware.util.StringUtils" %>
 <%@ page import="ru.krimm.openfire.mobileaccess.MobileAccessPlugin" %>
+<%@ page import="ru.krimm.openfire.mobileaccess.admin.MobileAccessAdministrationService.ManagedMobileUser" %>
 <%@ taglib uri="admin" prefix="admin" %>
 
 <%
@@ -16,9 +20,14 @@
     String message = null;
     String messageType = "success";
     final boolean changePassword = request.getParameter("changePassword") != null;
-    final boolean revokePassword = request.getParameter("revokePassword") != null;
+    final boolean blockAccess = request.getParameter("blockAccess") != null;
+    final boolean enableAccess = request.getParameter("enableAccess") != null;
+    final boolean deleteCredential = request.getParameter("deleteCredential") != null;
+    final boolean grantAdmin = request.getParameter("grantAdmin") != null;
+    final boolean revokeAdmin = request.getParameter("revokeAdmin") != null;
+    final boolean hasOperation = changePassword || blockAccess || enableAccess || deleteCredential || grantAdmin || revokeAdmin;
 
-    if (changePassword || revokePassword) {
+    if (hasOperation) {
         final Cookie csrfCookie = CookieUtils.getCookie(request, "csrf");
         final String submittedCsrf = ParamUtils.getParameter(request, "csrf");
         if (csrfCookie == null || submittedCsrf == null || !csrfCookie.getValue().equals(submittedCsrf)) {
@@ -41,9 +50,21 @@
                     } finally {
                         Arrays.fill(password, '\0');
                     }
+                } else if (blockAccess) {
+                    MobileAccessPlugin.administrationService().block(actor, username);
+                    message = "Mobile access was blocked.";
+                } else if (enableAccess) {
+                    MobileAccessPlugin.administrationService().enable(actor, username);
+                    message = "Mobile access was enabled.";
+                } else if (deleteCredential) {
+                    MobileAccessPlugin.administrationService().delete(actor, username);
+                    message = "The mobile credential was deleted.";
+                } else if (grantAdmin) {
+                    MobileAccessPlugin.administrationService().setAdministrator(actor, username, true);
+                    message = "Administrator access was granted.";
                 } else {
-                    MobileAccessPlugin.administrationService().revoke(actor, username);
-                    message = "Mobile access was revoked successfully.";
+                    MobileAccessPlugin.administrationService().setAdministrator(actor, username, false);
+                    message = "Administrator access was revoked.";
                 }
             } catch (final IllegalArgumentException e) {
                 message = e.getMessage();
@@ -57,6 +78,9 @@
 
     final String csrf = StringUtils.randomString(15);
     CookieUtils.setCookie(request, response, "csrf", csrf, -1);
+    final List<ManagedMobileUser> users = MobileAccessPlugin.administrationService().listUsers();
+    final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        .withZone(ZoneId.systemDefault());
 %>
 <html>
 <head>
@@ -71,12 +95,12 @@
     </div>
 <% } %>
 
-<p>Manage a separate local password for an LDAP-backed Openfire user. The user must exist and belong to the configured allowed group.</p>
+<p>Manage separate mobile credentials for LDAP-backed Openfire users. Blocking preserves the password; deletion removes the credential permanently.</p>
 
 <div class="jive-contentBoxHeader">Create or replace mobile password</div>
 <div class="jive-contentBox">
     <form action="mobileaccess-admin.jsp" method="post" autocomplete="off">
-        <input type="hidden" name="csrf" value="<%= csrf %>"/>
+        <input type="hidden" name="csrf" value="<%= StringEscapeUtils.escapeHtml4(csrf) %>"/>
         <table cellspacing="0" border="0">
             <tr><td><label for="username">Username</label></td><td><input id="username" name="username" type="text" maxlength="64" required/></td></tr>
             <tr><td><label for="password">New password</label></td><td><input id="password" name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"/></td></tr>
@@ -87,14 +111,50 @@
 </div>
 
 <br/>
-<div class="jive-contentBoxHeader">Revoke mobile access</div>
+<div class="jive-contentBoxHeader">Managed mobile users (<%= users.size() %>)</div>
 <div class="jive-contentBox">
-    <form action="mobileaccess-admin.jsp" method="post">
-        <input type="hidden" name="csrf" value="<%= csrf %>"/>
-        <label for="revokeUsername">Username</label>
-        <input id="revokeUsername" name="username" type="text" maxlength="64" required/>
-        <button type="submit" name="revokePassword">Revoke</button>
-    </form>
+<% if (users.isEmpty()) { %>
+    <p>No mobile credentials have been created.</p>
+<% } else { %>
+    <table class="jive-table" cellspacing="0" cellpadding="3" width="100%">
+        <thead>
+        <tr>
+            <th>Username</th>
+            <th>Status</th>
+            <th>Administrator</th>
+            <th>Updated</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% for (final ManagedMobileUser user : users) { %>
+        <tr>
+            <td><strong><%= StringEscapeUtils.escapeHtml4(user.username()) %></strong></td>
+            <td><%= user.enabled() ? "Enabled" : "Blocked" %></td>
+            <td><%= user.administrator() ? "Yes" : "No" %></td>
+            <td><%= user.updatedAt() == null ? "—" : dateFormatter.format(user.updatedAt()) %></td>
+            <td>
+                <form action="mobileaccess-admin.jsp" method="post" style="display:inline">
+                    <input type="hidden" name="csrf" value="<%= StringEscapeUtils.escapeHtml4(csrf) %>"/>
+                    <input type="hidden" name="username" value="<%= StringEscapeUtils.escapeHtml4(user.username()) %>"/>
+                    <% if (user.enabled()) { %>
+                        <button type="submit" name="blockAccess">Block</button>
+                    <% } else { %>
+                        <button type="submit" name="enableAccess">Enable</button>
+                    <% } %>
+                    <% if (user.administrator()) { %>
+                        <button type="submit" name="revokeAdmin">Remove administrator</button>
+                    <% } else { %>
+                        <button type="submit" name="grantAdmin">Make administrator</button>
+                    <% } %>
+                    <button type="submit" name="deleteCredential" onclick="return confirm('Delete the mobile credential for this user?');">Delete</button>
+                </form>
+            </td>
+        </tr>
+        <% } %>
+        </tbody>
+    </table>
+<% } %>
 </div>
 </body>
 </html>
