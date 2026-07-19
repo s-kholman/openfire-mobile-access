@@ -4,7 +4,6 @@ import java.util.Locale;
 import java.util.Optional;
 
 import org.jivesoftware.openfire.XMPPServer;
-import org.jivesoftware.openfire.group.Group;
 import org.jivesoftware.openfire.group.GroupManager;
 import org.jivesoftware.openfire.group.GroupNotFoundException;
 import org.jivesoftware.openfire.user.User;
@@ -61,14 +60,11 @@ public final class OpenfireDirectoryGateway implements DirectoryGateway {
 
     @Override
     public boolean isMemberOf(final String username, final String groupName) {
-        final String normalizedUsername = normalizeUsername(username);
-        try {
-            final Group group = groupManager.getGroup(requireGroupName(groupName));
-            final JID userJid = xmppServer.createJID(normalizedUsername, null).asBareJID();
-            return group.getAll().contains(userJid);
-        } catch (final GroupNotFoundException exception) {
-            return false;
-        }
+        final String expectedGroupName = requireGroupName(groupName);
+        final JID userJid = xmppServer.createJID(normalizeUsername(username), null).asBareJID();
+
+        return groupManager.getGroups(userJid).stream()
+            .anyMatch(group -> expectedGroupName.equals(group.getName()));
     }
 
     private static String normalizeUsername(final String username) {
