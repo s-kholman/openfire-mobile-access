@@ -1,12 +1,17 @@
 package ru.krimm.openfire.mobileaccess.auth;
 
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Locale;
+import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.auth.AuthProvider;
 import org.jivesoftware.openfire.auth.ConnectionException;
 import org.jivesoftware.openfire.auth.InternalUnauthenticatedException;
 import org.jivesoftware.openfire.auth.UnauthorizedException;
+import org.jivesoftware.openfire.group.GroupManager;
+import org.jivesoftware.openfire.user.UserManager;
 import org.jivesoftware.openfire.user.UserNotFoundException;
+import org.xmpp.packet.JID;
 
 /** Authentication provider for locally managed mobile credentials. */
 public final class MobileAccessAuthProvider implements AuthProvider {
@@ -22,22 +27,52 @@ public final class MobileAccessAuthProvider implements AuthProvider {
         }
 
         final String normalizedUsername = normalizeUsername(username);
+        final char[] passwordCharacters = password.toCharArray();
         try {
+            requireDirectoryEligibility(normalizedUsername);
             final StoredCredential credential = credentialStore.find(normalizedUsername)
                 .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
 
-            if (!verifier.verify(password.toCharArray(), credential)) {
+            if (!verifier.verify(passwordCharacters, credential)) {
                 throw new UnauthorizedException("Invalid username or password");
             }
         } catch (final SQLException e) {
             throw new ConnectionException("Unable to access the Mobile Access credential store", e);
+        } finally {
+            Arrays.fill(passwordCharacters, '\0');
         }
     }
 
-    private static String normalizeUsername(final String username) {
-        final int at = username.indexOf('@');
-        final String localpart = at >= 0 ? username.substring(0, at) : username;
-        return localpart.trim().toLowerCase(Locale.ROOT);
+    private static void requireDirectoryEligibility(final String username) throws UnauthorizedException {
+        try {
+            UserManager.getInstance().getUser(username);
+            final JID userJid = XMPPServer.getInstance().createJID(username, null).asBareJID();
+            if (GroupManager.getInstance().getGroups(userJid).isEmpty()) {
+                throw new UnauthorizedException("Invalid username or password");
+            }
+        } catch (final UserNotFoundException e) {
+            throw new UnauthorizedException("Invalid username or password");
+        }
+    }
+
+    static String normalizeUsername(final String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Username must not be blank");
+        }
+        String value = username.trim();
+        final int backslash = value.lastIndexOf('\\');
+        if (backslash >= 0) {
+            value = value.substring(backslash + 1);
+        }
+        final int at = value.indexOf('@');
+        if (at >= 0) {
+            value = value.substring(0, at);
+        }
+        value = value.trim();
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException("Username must contain an account name");
+        }
+        return value.toLowerCase(Locale.ROOT);
     }
 
     @Override
