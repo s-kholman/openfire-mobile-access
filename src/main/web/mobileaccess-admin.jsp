@@ -90,10 +90,12 @@
 %>
 <html>
 <head>
-    <title>Mobile Access</title>
+    <title>Mobile Access <%= MobileAccessPlugin.VERSION %></title>
     <meta name="pageID" content="mobileaccess-admin"/>
 </head>
 <body>
+<p><strong>Plugin version:</strong> <%= MobileAccessPlugin.VERSION %></p>
+
 <% if (message != null) { %>
     <div class="jive-contentBox">
         <strong><%= "error".equals(messageType) ? "Error" : "Success" %>:</strong>
