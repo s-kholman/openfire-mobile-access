@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+    <class>ru.krimm.openfire.stablemessageid.StableMessageIdPlugin</class>
+    <name>Stable Message ID</name>
+    <description>Adds XEP-0359 stable stanza identifiers to direct chat messages before Openfire stores or archives them.</description>
+    <author>s-kholman</author>
+    <version>0.1.0-SNAPSHOT</version>
+    <date>2026-07-20</date>
+    <url>https://github.com/s-kholman/openfire-mobile-access</url>
+    <minServerVersion>5.1.1</minServerVersion>
+    <minJavaVersion>17</minJavaVersion>
+    <licenseType>apache</licenseType>
+</plugin>
