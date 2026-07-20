@@ -6,7 +6,7 @@
 
     <groupId>ru.krimm.openfire</groupId>
     <artifactId>mobileaccess-auth-provider</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <name>Openfire Mobile Access Auth Provider</name>
     <description>Core-classpath authentication provider for Openfire Mobile Access.</description>
 

@@ -12,9 +12,9 @@
 
     <groupId>ru.krimm.openfire</groupId>
     <artifactId>mobileaccess</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <name>Openfire Mobile Access</name>
-    <description>Local mobile credentials for LDAP-backed Openfire users.</description>
+    <description>Local mobile credentials for users admitted by the configured Openfire UserProvider.</description>
 
     <properties>
         <plugin.name>mobileaccess</plugin.name>
