@@ -20,7 +20,7 @@ import ru.krimm.openfire.mobileaccess.directory.OpenfireDirectoryGateway;
 /** Entry point for the Mobile Access Openfire plugin. */
 public final class MobileAccessPlugin implements Plugin {
 
-    public static final String VERSION = "0.2.8-SNAPSHOT";
+    public static final String VERSION = "0.3.0-SNAPSHOT";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MobileAccessPlugin.class);
     private static volatile MobileAccessPlugin instance;
