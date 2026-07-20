@@ -3,21 +3,32 @@ package ru.krimm.openfire.mobileaccess.auth;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Locale;
-import org.jivesoftware.openfire.XMPPServer;
+import java.util.Objects;
 import org.jivesoftware.openfire.auth.AuthProvider;
 import org.jivesoftware.openfire.auth.ConnectionException;
 import org.jivesoftware.openfire.auth.InternalUnauthenticatedException;
 import org.jivesoftware.openfire.auth.UnauthorizedException;
-import org.jivesoftware.openfire.group.GroupManager;
 import org.jivesoftware.openfire.user.UserManager;
 import org.jivesoftware.openfire.user.UserNotFoundException;
-import org.xmpp.packet.JID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Authentication provider for locally managed mobile credentials. */
 public final class MobileAccessAuthProvider implements AuthProvider {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MobileAccessAuthProvider.class);
+
     private final JdbcCredentialStore credentialStore = new JdbcCredentialStore();
     private final Pbkdf2CredentialVerifier verifier = new Pbkdf2CredentialVerifier();
+    private final DirectoryUserLookup directoryUserLookup;
+
+    public MobileAccessAuthProvider() {
+        this(username -> UserManager.getInstance().getUser(username));
+    }
+
+    MobileAccessAuthProvider(final DirectoryUserLookup directoryUserLookup) {
+        this.directoryUserLookup = Objects.requireNonNull(directoryUserLookup, "directoryUserLookup must not be null");
+    }
 
     @Override
     public void authenticate(final String username, final String password)
@@ -43,14 +54,18 @@ public final class MobileAccessAuthProvider implements AuthProvider {
         }
     }
 
-    private static void requireDirectoryEligibility(final String username) throws UnauthorizedException {
+    void requireDirectoryEligibility(final String username) throws UnauthorizedException {
         try {
-            UserManager.getInstance().getUser(username);
-            final JID userJid = XMPPServer.getInstance().createJID(username, null).asBareJID();
-            if (GroupManager.getInstance().getGroups(userJid).isEmpty()) {
-                throw new UnauthorizedException("Invalid username or password");
-            }
+            directoryUserLookup.requireExisting(username);
+            LOGGER.debug(
+                "Mobile Access directory user '{}' validated by configured UserProvider",
+                username
+            );
         } catch (final UserNotFoundException e) {
+            LOGGER.info(
+                "Mobile Access authentication rejected: directory user '{}' was not found by configured UserProvider",
+                username
+            );
             throw new UnauthorizedException("Invalid username or password");
         }
     }
@@ -113,5 +128,10 @@ public final class MobileAccessAuthProvider implements AuthProvider {
     @Override
     public String getStoredKey(final String username) throws UserNotFoundException {
         throw new UnsupportedOperationException("SCRAM is not supported");
+    }
+
+    @FunctionalInterface
+    interface DirectoryUserLookup {
+        void requireExisting(String username) throws UserNotFoundException;
     }
 }
