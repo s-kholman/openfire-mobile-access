@@ -4,6 +4,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.igniterealtime.openfire</groupId>
+        <artifactId>plugins</artifactId>
+        <version>5.1.1</version>
+    </parent>
+
     <groupId>ru.krimm.openfire</groupId>
     <artifactId>stable-message-id</artifactId>
     <version>0.1.0-SNAPSHOT</version>
@@ -11,51 +17,14 @@
     <description>Adds XEP-0359 stanza-id values to direct messages before routing.</description>
 
     <properties>
+        <plugin.name>stable-message-id</plugin.name>
         <maven.compiler.release>17</maven.compiler.release>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <openfire.version>5.1.1</openfire.version>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.igniterealtime.openfire</groupId>
-            <artifactId>xmppserver</artifactId>
-            <version>${openfire.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.12.2</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
     <build>
-        <finalName>stable-message-id</finalName>
-        <resources>
-            <resource>
-                <directory>${project.basedir}</directory>
-                <includes><include>plugin.xml</include></includes>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.0</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.3</version>
-                <configuration><useModulePath>false</useModulePath></configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.2</version>
+                <artifactId>maven-assembly-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
@@ -63,7 +32,16 @@
     <repositories>
         <repository>
             <id>igniterealtime</id>
+            <name>Ignite Realtime Repository</name>
             <url>https://igniterealtime.org/archiva/repository/maven/</url>
         </repository>
     </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>igniterealtime</id>
+            <name>Ignite Realtime Repository</name>
+            <url>https://igniterealtime.org/archiva/repository/maven/</url>
+        </pluginRepository>
+    </pluginRepositories>
 </project>
