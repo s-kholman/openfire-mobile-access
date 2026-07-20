@@ -41,6 +41,9 @@ jobs:
       - name: Build authentication provider
         run: mvn --batch-mode --no-transfer-progress -f auth-provider/pom.xml clean verify
 
+      - name: Build stable message ID plugin
+        run: mvn --batch-mode --no-transfer-progress -f stable-message-id/pom.xml clean verify
+
       - name: Prepare deployable plugin
         if: matrix.java == '17'
         run: cp target/mobileaccess-openfire-plugin-assembly.jar target/mobileaccess.jar
@@ -59,4 +62,12 @@ jobs:
         with:
           name: mobileaccess-auth-provider
           path: auth-provider/target/mobileaccess-auth-provider.jar
+          if-no-files-found: error
+
+      - name: Upload stable message ID plugin artifact
+        if: matrix.java == '17'
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-message-id-openfire-plugin
+          path: stable-message-id/target/stable-message-id.jar
           if-no-files-found: error
