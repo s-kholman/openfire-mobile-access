@@ -34,10 +34,27 @@ public final class MobileAccessAuthProvider implements AuthProvider {
         }
     }
 
-    private static String normalizeUsername(final String username) {
-        final int at = username.indexOf('@');
-        final String localpart = at >= 0 ? username.substring(0, at) : username;
-        return localpart.trim().toLowerCase(Locale.ROOT);
+    static String normalizeUsername(final String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Username must not be blank");
+        }
+
+        String value = username.trim();
+        final int backslash = value.lastIndexOf('\\');
+        if (backslash >= 0) {
+            value = value.substring(backslash + 1);
+        }
+
+        final int at = value.indexOf('@');
+        if (at >= 0) {
+            value = value.substring(0, at);
+        }
+
+        value = value.trim();
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException("Username must contain an account name");
+        }
+        return value.toLowerCase(Locale.ROOT);
     }
 
     @Override

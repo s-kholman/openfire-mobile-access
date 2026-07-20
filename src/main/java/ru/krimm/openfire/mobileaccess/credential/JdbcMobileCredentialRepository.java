@@ -7,8 +7,12 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Optional;
 import org.jivesoftware.database.DbConnectionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class JdbcMobileCredentialRepository implements MobileCredentialRepository {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcMobileCredentialRepository.class);
 
     private static final String UPSERT = """
         INSERT INTO ofMobileAccessCredential
@@ -26,8 +30,10 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
 
     @Override
     public void save(final String username, final Pbkdf2PasswordHasher.HashedPassword password, final Instant changedAt) {
+        LOGGER.info("JdbcMobileCredentialRepository.save entered for target={}", username);
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(UPSERT)) {
+            LOGGER.info("Database connection acquired for credential upsert: target={}", username);
             statement.setString(1, username);
             statement.setString(2, password.algorithm());
             statement.setInt(3, password.iterations());
@@ -35,8 +41,10 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
             statement.setString(5, password.hash());
             statement.setLong(6, changedAt.toEpochMilli());
             statement.setLong(7, changedAt.toEpochMilli());
-            statement.executeUpdate();
+            final int affectedRows = statement.executeUpdate();
+            LOGGER.info("Credential upsert completed for target={}: affectedRows={}", username, affectedRows);
         } catch (final SQLException e) {
+            LOGGER.error("Credential upsert failed for target=" + username, e);
             throw new IllegalStateException("Unable to save mobile credential", e);
         }
     }
@@ -44,13 +52,16 @@ public final class JdbcMobileCredentialRepository implements MobileCredentialRep
     @Override
     public void revoke(final String username, final Instant revokedAt) {
         final String sql = "UPDATE ofMobileAccessCredential SET enabled = FALSE, revokedAt = ?, updatedAt = ? WHERE username = ?";
+        LOGGER.info("JdbcMobileCredentialRepository.revoke entered for target={}", username);
         try (Connection connection = DbConnectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, revokedAt.toEpochMilli());
             statement.setLong(2, revokedAt.toEpochMilli());
             statement.setString(3, username);
-            statement.executeUpdate();
+            final int affectedRows = statement.executeUpdate();
+            LOGGER.info("Credential revoke completed for target={}: affectedRows={}", username, affectedRows);
         } catch (final SQLException e) {
+            LOGGER.error("Credential revoke failed for target=" + username, e);
             throw new IllegalStateException("Unable to revoke mobile credential", e);
         }
     }

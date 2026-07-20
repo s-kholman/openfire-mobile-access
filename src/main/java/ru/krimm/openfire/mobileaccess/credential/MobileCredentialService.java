@@ -4,10 +4,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.krimm.openfire.mobileaccess.directory.DirectoryEligibilityService;
 import ru.krimm.openfire.mobileaccess.directory.EligibilityResult;
 
 public final class MobileCredentialService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MobileCredentialService.class);
 
     private final DirectoryEligibilityService eligibilityService;
     private final MobileCredentialRepository repository;
@@ -27,24 +31,54 @@ public final class MobileCredentialService {
     }
 
     public void setPassword(final String username, final char[] password) {
-        final String normalizedUsername = normalize(username);
+        final String normalizedUsername = normalizeUsername(username);
+        LOGGER.info("Evaluating directory eligibility for target={}", normalizedUsername);
         final EligibilityResult eligibility = eligibilityService.evaluate(normalizedUsername);
+        LOGGER.info("Directory eligibility evaluated for target={}: status={}", normalizedUsername, eligibility.status());
         if (!eligibility.isEligible()) {
             throw new IllegalArgumentException("User is not eligible for mobile access: " + eligibility.status());
         }
         validatePassword(password);
-        repository.save(normalizedUsername, passwordHasher.hash(password), Instant.now(clock));
+        LOGGER.info("Password policy validation completed for target={}", normalizedUsername);
+        final Pbkdf2PasswordHasher.HashedPassword hashedPassword = passwordHasher.hash(password);
+        LOGGER.info(
+            "Password hashing completed for target={}: algorithm={}, iterations={}",
+            normalizedUsername,
+            hashedPassword.algorithm(),
+            hashedPassword.iterations()
+        );
+        repository.save(normalizedUsername, hashedPassword, Instant.now(clock));
+        LOGGER.info("Credential repository save completed for target={}", normalizedUsername);
     }
 
     public void revoke(final String username) {
-        repository.revoke(normalize(username), Instant.now(clock));
+        final String normalizedUsername = normalizeUsername(username);
+        LOGGER.info("Revoking credential for target={}", normalizedUsername);
+        repository.revoke(normalizedUsername, Instant.now(clock));
+        LOGGER.info("Credential revoke completed for target={}", normalizedUsername);
     }
 
-    private static String normalize(final String username) {
+    static String normalizeUsername(final String username) {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("Username must not be blank");
         }
-        return username.trim().toLowerCase(Locale.ROOT);
+
+        String value = username.trim();
+        final int backslash = value.lastIndexOf('\\');
+        if (backslash >= 0) {
+            value = value.substring(backslash + 1);
+        }
+
+        final int at = value.indexOf('@');
+        if (at >= 0) {
+            value = value.substring(0, at);
+        }
+
+        value = value.trim();
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException("Username must contain an account name");
+        }
+        return value.toLowerCase(Locale.ROOT);
     }
 
     private static void validatePassword(final char[] password) {
