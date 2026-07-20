@@ -5,7 +5,7 @@
     <description>Provides separate local mobile credentials for LDAP-backed Openfire users while preserving Kerberos SSO for domain Windows clients.</description>
     <author>s-kholman</author>
     <version>${project.version}</version>
-    <date>2026-07-18</date>
+    <date>2026-07-20</date>
     <url>https://github.com/s-kholman/openfire-mobile-access</url>
     <minServerVersion>5.1.1</minServerVersion>
     <minJavaVersion>17</minJavaVersion>
@@ -14,12 +14,13 @@
     <databaseVersion>1</databaseVersion>
     <csrfProtectionEnabled>true</csrfProtectionEnabled>
     <adminconsole>
-        <tab id="server" name="Server" url="mobileaccess-admin.jsp" description="Openfire server administration">
-            <sidebar id="server-settings" name="Server Settings">
-                <item id="mobileaccess-admin" name="Mobile Access"
+        <tab id="mobileaccess" name="Mobile Access" url="mobileaccess-admin.jsp"
+             description="Manage local credentials for mobile XMPP clients">
+            <sidebar id="mobileaccess-settings" name="Mobile Access">
+                <item id="mobileaccess-admin" name="User Access"
                       url="mobileaccess-admin.jsp"
-                      description="Issue or revoke local mobile credentials"
-                      order="90" />
+                      description="Create, rotate, block, enable or delete local mobile credentials"
+                      order="10" />
             </sidebar>
         </tab>
     </adminconsole>
