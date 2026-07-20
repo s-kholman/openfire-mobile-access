@@ -44,9 +44,11 @@ jobs:
       - name: Build stable message ID plugin
         run: mvn --batch-mode --no-transfer-progress -f stable-message-id/pom.xml clean verify
 
-      - name: Prepare deployable plugin
+      - name: Prepare deployable plugins
         if: matrix.java == '17'
-        run: cp target/mobileaccess-openfire-plugin-assembly.jar target/mobileaccess.jar
+        run: |
+          cp target/mobileaccess-openfire-plugin-assembly.jar target/mobileaccess.jar
+          cp stable-message-id/target/stable-message-id-openfire-plugin-assembly.jar stable-message-id/target/stable-message-id.jar
 
       - name: Upload plugin artifact
         if: matrix.java == '17'
